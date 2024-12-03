@@ -39,6 +39,10 @@ function sumDistances({ left, right }) {
   return total;
 }
 
+function freq(arr, el) {
+  return arr.reduce((acc, cur) => acc + (el === cur ? 1 : 0), 0);
+}
+
 function solve() {
   const lr = parseLeftAndRight();
   const dists = sumDistances(lr);
@@ -46,4 +50,26 @@ function solve() {
   return dists;
 }
 
+function sumSimilarity({ left, right }) {
+  const score = (arr, n) => n * freq(arr, n);
+  const memo = {};
+
+  let total = 0;
+  for (let i = 0; i < left.length; ++i) {
+    const n = left[i];
+    if (memo[n] !== undefined) total += memo[n];
+    else total += memo[n] = score(right, n);
+  }
+
+  return total;
+}
+
+function solve2() {
+  const lr = parseLeftAndRight();
+  const similarity = sumSimilarity(lr);
+
+  return similarity;
+}
+
 console.log(solve());
+console.log(solve2());
