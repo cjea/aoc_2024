@@ -135,9 +135,50 @@ function countXmas(grid) {
   return total;
 }
 
+function crossCoords([row, col]) {
+  return [
+    [
+      [row - 1, col - 1],
+      [row, col],
+      [row + 1, col + 1],
+    ],
+    [
+      [row - 1, col + 1],
+      [row, col],
+      [row + 1, col - 1],
+    ],
+  ];
+}
+
+function countCrossMas(grid) {
+  const skip = (c) => c !== "A";
+  const readWord = getByCoords.bind(null, grid);
+  const chars = ["M", "A", "S"];
+  const isMas = (word) =>
+    chars.reduce((acc, c) => acc + word.indexOf(c), 0) === 0 + 1 + 2;
+
+  let total = 0;
+  for (let row = 0; row < grid.length; ++row) {
+    for (let col = 0; col < grid[row].length; ++col) {
+      const start = [row, col];
+      if (skip(getByCoord(grid, start))) continue;
+
+      if (crossCoords(start).map(readWord).every(isMas)) total += 1;
+    }
+  }
+
+  return total;
+}
+
 function solve() {
   const grid = readInputLines();
   return countXmas(grid);
 }
 
+function solve2() {
+  const grid = readInputLines();
+  return countCrossMas(grid);
+}
+
 console.log(solve());
+console.log(solve2());
