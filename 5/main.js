@@ -53,6 +53,34 @@ function valid(dependencies, order) {
   return true;
 }
 
+function swap(arr, idx1, idx2) {
+  const tmp = arr[idx1];
+  arr[idx1] = arr[idx2];
+  arr[idx2] = tmp;
+}
+
+function fix(dependencies, order) {
+  let right, left;
+  const mustPrecede = (a, b) => (dependencies[a] || []).includes(b);
+  const reset = () => {
+    right = order.length - 1;
+    left = right - 1;
+  };
+
+  reset();
+  while (left >= 0 && right > 0) {
+    if (mustPrecede(order[right], order[left])) {
+      swap(order, right, left);
+      reset();
+      continue;
+    }
+    right -= 1;
+    left -= 1;
+  }
+
+  return order;
+}
+
 function sumMiddlesOfValidPageOrders(dependencies, pageOrders) {
   const isValid = valid.bind(null, dependencies);
   const middle = (arr) => arr[Math.floor(arr.length / 2)];
@@ -61,9 +89,28 @@ function sumMiddlesOfValidPageOrders(dependencies, pageOrders) {
   return pageOrders.filter(isValid).map(middle).reduce(sum);
 }
 
+function sumMiddlesOfFixedPageOrders(dependencies, pageOrders) {
+  const isValid = valid.bind(null, dependencies);
+  const fixOrder = fix.bind(null, dependencies);
+  const middle = (arr) => arr[Math.floor(arr.length / 2)];
+  const sum = (a, b) => Number(a) + Number(b);
+
+  return pageOrders
+    .filter((o) => !isValid(o))
+    .map(fixOrder)
+    .map(middle)
+    .reduce(sum);
+}
+
 function solve() {
   const { dependencies, pageOrders } = parseInput();
   return sumMiddlesOfValidPageOrders(dependencies, pageOrders);
 }
 
+function solve2() {
+  const { dependencies, pageOrders } = parseInput();
+  return sumMiddlesOfFixedPageOrders(dependencies, pageOrders);
+}
+
 console.log(solve());
+console.log(solve2());
