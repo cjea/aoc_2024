@@ -46,6 +46,10 @@ function isObstacle(c) {
   return c === "#";
 }
 
+function markObstacle(map, [row, col]) {
+  map[row][col] = "#";
+}
+
 function isVisited(c) {
   return c === "X";
 }
@@ -94,9 +98,7 @@ function countVisited(map) {
   return total;
 }
 
-function step(map, coords, direction, turns = 0) {
-  if (turns >= 4) throw new Error("Struck, never leaving the map.");
-
+function step(map, coords, direction) {
   const vector = vectors[direction];
   if (!vector) throw new Error(`Bad direction: ${direction}`);
 
@@ -104,7 +106,7 @@ function step(map, coords, direction, turns = 0) {
   const newCoords = addCoords(coords, vector);
 
   if (isObstacle(getByCoord(map, newCoords))) {
-    return step(map, coords, turn(), turns + 1);
+    return step(map, coords, turn());
   }
 
   return { newCoords, newDirection: direction };
@@ -129,6 +131,53 @@ function countDistinctPositions(map) {
   return countVisited(map);
 }
 
+function hasLoop(map) {
+  let seen = {};
+  const markSeen = ([row, col], direction) => {
+    if (!seen[row]) seen[row] = {};
+    if (!seen[row][col]) seen[row][col] = [];
+
+    seen[row][col].push(direction);
+  };
+  const been = ([row, col], direction) =>
+    seen[row] && seen[row][col] && seen[row][col].includes(direction);
+
+  let guard = findGuard(map);
+  if (!guard) throw new Error("No guard");
+
+  let { coords, direction } = guard;
+  const _step = () => {
+    const { newCoords, newDirection } = step(map, coords, direction);
+    coords = newCoords;
+    direction = newDirection;
+  };
+
+  while (inBounds(map, coords)) {
+    if (been(coords, direction)) return true;
+
+    markSeen(coords, direction);
+    _step();
+  }
+
+  return false;
+}
+
+function countPossibleLoopsBruteForce(map) {
+  let total = 0;
+  for (let row = 0; row < map.length; ++row) {
+    for (let col = 0; col < map[row].length; ++col) {
+      const cell = map[row][col];
+      if (isGuard(cell) || isObstacle(cell)) continue;
+
+      markObstacle(map, [row, col]);
+      if (hasLoop(map)) total += 1;
+      map[row][col] = cell;
+    }
+  }
+
+  return total;
+}
+
 function solve() {
   const map = loadMap();
   const n = countDistinctPositions(map);
@@ -136,4 +185,12 @@ function solve() {
   return n;
 }
 
+function solve2() {
+  const map = loadMap();
+  const n = countPossibleLoopsBruteForce(map);
+
+  return n;
+}
+
 console.log(solve());
+console.log(solve2());
