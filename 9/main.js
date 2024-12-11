@@ -8,31 +8,38 @@ function lastFileIndex(str) {
   return str.length % 2 ? str.length - 1 : str.length - 2;
 }
 
-function maxFileId(str) {
-  const twosIdx = str.length / 2 - 1;
-  return ~~twosIdx + (str.length % 2);
+function calcFileId({ length }) {
+  return ~~(length / 2) + (length % 2) - 1;
+}
+
+function at(str, idx) {
+  return Number(str[idx]);
+}
+
+function fillBuffer(id, blocks) {
+  return { id, blocks };
+}
+
+function add(virtualIndex, buffer) {
+  let total = 0;
+  for (let i = 0; i < buffer.blocks; ++i) {
+    const n = (virtualIndex + i) * buffer.id;
+    total += n;
+  }
+  virtualIndex += buffer.blocks;
+  return total;
 }
 
 function calculateChecksum(str) {
-  const at = (idx) => Number(str[idx]);
-
-  const fillBuffer = (id, blocks) => {
-    buffer.id = id;
-    buffer.blocks = blocks;
-  };
-
-  const add = () => {
-    for (let i = 0; i < buffer.blocks; ++i) {
-      const n = (virtualIndex + i) * buffer.id;
-      checksum += n;
-    }
-    virtualIndex += buffer.blocks;
-  };
-
   const initBorrowBuffer = () => {
-    borrow.id = maxFileId(str);
+    borrow.id = calcFileId(str);
     borrow.index = lastFileIndex(str);
-    borrow.blocks = at(borrow.index);
+    borrow.blocks = at(str, borrow.index);
+  };
+  const nullifyBorrowBuffer = () => {
+    borrow.id = null;
+    borrow.index = null;
+    borrow.blocks = null;
   };
 
   const borrowBlocks = (num) => {
@@ -40,12 +47,7 @@ function calculateChecksum(str) {
     if (borrow.blocks < 1) {
       borrow.id -= 1;
       borrow.index -= 2;
-      borrow.blocks = at(borrow.index);
-    }
-    if (borrow.index < globalIndex) {
-      borrow.id = null;
-      borrow.index = null;
-      borrow.blocks = null;
+      borrow.blocks = at(str, borrow.index);
     }
   };
 
@@ -54,34 +56,91 @@ function calculateChecksum(str) {
   let fileId = 0;
 
   const borrow = { id: null, index: null, blocks: null };
-  const buffer = { id: fileId, blocks: Number(str[globalIndex]) };
+  let buffer = { id: fileId, blocks: at(str, globalIndex) };
   let virtualIndex = 0;
   let checksum = 0;
 
   initBorrowBuffer();
 
   while (globalIndex < borrow.index) {
-    fillBuffer(fileId, at(globalIndex));
-    add();
+    const fileId = calcFileId({ length: globalIndex + 1 });
+    buffer = fillBuffer(fileId, at(str, globalIndex));
+    checksum += add(virtualIndex, buffer);
+    virtualIndex += buffer.blocks;
 
     globalIndex += 1;
-    slots = at(globalIndex);
+    slots = at(str, globalIndex);
 
     while (slots && borrow.id) {
       const used = Math.min(slots, borrow.blocks);
-      fillBuffer(borrow.id, used);
-      add();
+      buffer = fillBuffer(borrow.id, used);
+      checksum += add(virtualIndex, buffer);
+      virtualIndex += buffer.blocks;
 
-      borrowBlocks(used);
       slots -= used;
+      borrowBlocks(used);
+      if (borrow.index < globalIndex) nullifyBorrowBuffer();
     }
     globalIndex += 1;
-    fileId += 1;
   }
 
   if (borrow.id) {
-    fillBuffer(borrow.id, borrow.blocks);
-    add();
+    buffer = fillBuffer(borrow.id, borrow.blocks);
+    checksum += add(virtualIndex, buffer);
+    virtualIndex += buffer.blocks;
+  }
+
+  return checksum;
+}
+
+/**
+  Couldn't figure out how to adapt the part 1 strategy.
+  Do it the literal way instead of greedy aggregation.
+ */
+function calculateChecksumWithoutFragments(str) {
+  const parse = (el, i) =>
+    i % 2
+      ? { slots: Number(el) }
+      : { id: calcFileId({ length: i + 1 }), blocks: Number(el) };
+
+  const input = str.split("").map(parse);
+  for (let i = input.length - 1; i >= 2; --i) {
+    const file = input[i];
+    if (!file.id) continue;
+
+    let found = false;
+    for (let j = 1; j < i && !found; ++j) {
+      const slots = input[j];
+      if (!input[j].slots) continue;
+      if (slots.slots < file.blocks) continue;
+      if (slots.slots === file.blocks) {
+        found = true;
+        input[j] = file;
+        input[i] = { slots: file.blocks };
+      }
+      if (slots.slots > file.blocks) {
+        found = true;
+        slots.slots -= file.blocks;
+        input[i] = { slots: file.blocks };
+
+        input.splice(j, 0, file);
+        ++i;
+      }
+    }
+  }
+
+  let virtualIndex = 0;
+  let checksum = 0;
+  for (let i = 0; i < input.length; ++i) {
+    if (input[i].slots !== undefined) {
+      virtualIndex += input[i].slots;
+      continue;
+    }
+    const b = fillBuffer(input[i].id, input[i].blocks);
+    const toAdd = add(virtualIndex, b);
+
+    checksum += toAdd;
+    virtualIndex += input[i].blocks;
   }
 
   return checksum;
@@ -94,4 +153,12 @@ function solve() {
   return checksum;
 }
 
+function solve2() {
+  const input = readInput();
+  const checksum = calculateChecksumWithoutFragments(input);
+
+  return checksum;
+}
+
 console.log(solve());
+console.log(solve2());
