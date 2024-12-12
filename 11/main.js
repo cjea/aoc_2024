@@ -1,12 +1,20 @@
 const fs = require("fs");
-/**
-[ 5 127 680267 39260 0 26 3553 5851995 ]
-5*2024, 127*2024, 680, 267, 39260
- */
 
 function readInput() {
   return fs.readFileSync("input.txt").toString().split(" ").map(Number);
 }
+
+const memo = {};
+
+const memoized = (val, n) =>
+  memo[val] !== undefined && memo[val][n] !== undefined;
+
+const getMemo = (val, n) => (memoized(val, n) ? memo[val][n] : null);
+
+const memoize = (val, n, sum) => {
+  if (!memo[val]) memo[val] = {};
+  memo[val][n] = sum;
+};
 
 function step(stone) {
   const str = String(stone);
@@ -18,30 +26,37 @@ function step(stone) {
   ];
 }
 
-function steps(stone, n) {
-  let line = [stone];
-  for (let i = 1; i <= n; ++i) {
-    line = line.flatMap(step);
-  }
-
-  return line;
+function count(steps) {
+  return (sum, val) => sum + countAfterSteps(val, steps);
 }
 
-function countStones(stones, num) {
-  let total = 0;
-  for (const stone of stones) {
-    total += steps(stone, num).length;
+function countAfterSteps(stone, steps) {
+  if (typeof stone !== "number") return 0;
+  if (steps < 1) return 1;
+  if (!memoized(stone, steps)) {
+    memoize(stone, steps, step(stone).reduce(count(steps - 1), 0));
   }
 
-  return total;
+  return getMemo(stone, steps);
+}
+
+function countStones(stones, numSteps) {
+  return stones.reduce((acc, cur) => acc + countAfterSteps(cur, numSteps), 0);
 }
 
 function solve() {
   const input = readInput();
-  console.log({ input });
   const n = countStones(input, 25);
 
   return n;
 }
 
+function solve2() {
+  const input = readInput();
+  const n = countStones(input, 75);
+
+  return n;
+}
+
 console.log(solve());
+console.log(solve2());
