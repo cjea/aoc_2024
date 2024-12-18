@@ -1,8 +1,8 @@
 const fs = require("fs");
 
-const COST_A = 3;
-const COST_B = 1;
-const MAX_PRESSES = 100;
+const COST_A = 3n;
+const COST_B = 1n;
+const ZERO = 0n;
 
 function readInput() {
   const lines = fs.readFileSync("input.txt").toString().split("\n");
@@ -19,42 +19,80 @@ function readInput() {
   return out;
 }
 
+function gcd(a, b) {
+  const rem = a % b;
+  if (!rem) return b;
+
+  return gcd(b, rem);
+}
+
+function div(a, b) {
+  const d = gcd(a, b);
+
+  return BigInt(a / d) / BigInt(b / d);
+}
+
+function reaches(start, dest, step) {
+  return (dest - start) % step === ZERO;
+}
+
+/**
+--------------------------------------------------------------------------------
+Each button, A and B, gives the slope of a line. Given a coordinate plane, draw
+a line of A presses from origin, and draw a line of B presses from the prize.
+
+Find the intersection of the two lines. If steps along the A vector can land on
+the point, and steps along the B vector lead from the point to the prize, then
+the point is a solution. Determine how many A and B presses are required by
+dividing the distance by the step size.
+
+All math needs to avoid floating point operations, or else there are IEEE 754
+rounding errors.
+
+Line for A:               Line for B:
+===========               ===========
+y = ma * x                y = mb * x' + b
+  where ma = ay/ax          where mb = by/bx
+                                  x' = (x - px)
+                                  b  = py
+Equivalence
+===========
+ma(x) = mb(x) - mb(px) + py
+x(ma - mb) = py - mb(px)
+x = (py - mb(px)) / (ma - mb)  👈 Multiply by (ax * bx)
+
+x = (ax * (bx(py) - by(px))) / (ay(bx) - by(ax))
+y = ay(x) / ax
+
+Check if (x, y) comes via A and leads to prize via B.
+
+*/
 function minCost({ a, b, prize }) {
-  const over = ({ x, y, a, b }) =>
-    x > prize[0] || y > prize[1] || a > MAX_PRESSES || b > MAX_PRESSES;
-  const press = (cur, button, cost, btn) => ({
-    x: cur.x + button[0],
-    y: cur.y + button[1],
-    a: cur.a + (btn === "A" ? 1 : 0),
-    b: cur.b + (btn === "B" ? 1 : 0),
-    tokens: cur.tokens + cost,
-    presses: cur.presses + 1,
-  });
+  const [ax, ay] = a.map(BigInt);
+  const [bx, by] = b.map(BigInt);
+  const [px, py] = prize.map(BigInt);
 
-  const memo = {};
-  const memoized = ({ x, y }) => memo[x] && memo[x][y];
-  const memoize = ({ x, y, tokens }) => {
-    if (!memo[x]) memo[x] = {};
-    memo[x][y] = tokens;
-  };
+  if (ay * bx === by * ax) throw new Error("Same slopes");
 
-  const queue = [{ a: 0, b: 0, tokens: 0, x: 0, y: 0 }];
-  while (queue.length) {
-    const cur = queue.pop();
-    if (over(cur)) continue;
+  const xnum = ax * (bx * py - by * px);
+  const xden = ay * bx - by * ax;
 
-    if (memoized(cur) && memoized(cur) <= cur.tokens) continue;
-
-    memoize(cur);
-    queue.push(press(cur, a, COST_A, "A"));
-    queue.push(press(cur, b, COST_B, "B"));
+  const x = div(xnum, xden);
+  const y = div(ay * x, ax);
+  if (
+    reaches(ZERO, x, ax) &&
+    reaches(ZERO, y, ay) &&
+    reaches(x, px, bx) &&
+    reaches(y, py, by)
+  ) {
+    return COST_A * div(x, ax) + COST_B * div(px - x, bx);
   }
 
-  return memoized({ x: prize[0], y: prize[1] });
+  return 0;
 }
 
 function cost(machines) {
-  let total = 0;
+  let total = ZERO;
   for (const m of machines) {
     const price = minCost(m);
     if (price > 0) total += price;
@@ -65,8 +103,20 @@ function cost(machines) {
 
 function solve() {
   const input = readInput();
-  const tokens = cost(input);
-
-  return tokens;
+  console.log("Part 1", cost(input).toString());
 }
-console.log(solve());
+
+function solve2() {
+  const offset = 10000000000000;
+  const input = readInput().reduce((arr, m) => {
+    m.prize[0] += offset;
+    m.prize[1] += offset;
+    arr.push(m);
+    return arr;
+  }, []);
+
+  console.log("Part 2:", cost(input).toString());
+}
+
+solve();
+solve2();
