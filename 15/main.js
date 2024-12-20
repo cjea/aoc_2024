@@ -9,7 +9,7 @@ function range(arr, lo, f) {
 }
 
 function readInput() {
-  const fd = "test_input.txt";
+  const fd = "input.txt";
   const lines = fs.readFileSync(fd).toString().split("\n");
   const board = range(lines, 0, (l) => l.length === 0)
     .filter(Boolean)
@@ -19,26 +19,17 @@ function readInput() {
   return { board, moves };
 }
 
-function isPlayer(c) {
-  return c === "@";
-}
-
-function isBox(c) {
-  return c === "O";
-}
-
-function isWall(c) {
-  return c === "#" || c == null;
-}
-
-function isFree(c) {
-  return c === ".";
-}
+const isPlayer = (c) => c === "@";
+const isBox = (c) => c === "O" || c === "[" || c === "]";
+const isWall = (c) => c === "#" || c == null;
+const isFree = (c) => c === ".";
 
 function swap(board, c1, c2) {
   const tmp = at(board, c1);
   board[c1[0]][c1[1]] = at(board, c2);
   board[c2[0]][c2[1]] = tmp;
+
+  return true;
 }
 
 const vectors = [
@@ -67,13 +58,45 @@ function findPlayer(board) {
   }
 }
 
-function nearestFreeSpace(board, cur, v) {
-  while (!isWall(at(board, cur))) {
-    cur = translate(cur, v);
-    if (isFree(at(board, cur))) return { ok: true, free: cur };
-  }
+function boxCoords(board, pos) {
+  const char = at(board, pos);
+  if (!isBox(char)) throw new Error("Can't get box coords for " + pos);
 
-  return { ok: false };
+  const [row, col] = pos;
+  switch (char) {
+    case "O":
+      return [pos];
+    case "[":
+      return [[row, col + 1], pos];
+    case "]":
+      return [[row, col - 1], pos];
+    default:
+      throw new Error("Malformed box at " + pos);
+  }
+}
+
+function follow(board, pos, v) {
+  const cur = at(board, pos);
+  if (isPlayer(cur)) return follow(board, translate(pos, v), v);
+  if (isWall(cur) || isFree(cur)) return [cur];
+  if (isBox(cur)) {
+    const nextBoxes = v[0] ? boxCoords(board, pos) : [pos];
+    return nextBoxes.flatMap((p) => follow(board, translate(p, v), v));
+  }
+}
+
+function shift(board, pos, v) {
+  const nxt = translate(pos, v);
+  const nxtChar = at(board, nxt);
+
+  if (isWall(nxtChar)) return;
+  if (isFree(nxtChar)) return swap(board, pos, nxt);
+  if (isBox(nxtChar)) {
+    const nextBoxes = v[0] ? boxCoords(board, nxt) : [nxt];
+    for (const b of nextBoxes) shift(board, b, v);
+
+    return swap(board, pos, nxt);
+  }
 }
 
 function playMove(board, move) {
@@ -81,13 +104,10 @@ function playMove(board, move) {
   const v = dirs[move];
   if (!v) throw new Error("Invalid move: " + move);
 
-  const { ok, free } = nearestFreeSpace(board, player, v);
-  if (!ok) return;
+  const legal = follow(board, player, v).every(isFree);
+  if (!legal) return;
 
-  const nxt = translate(player, v);
-  if (isBox(at(board, nxt))) swap(board, nxt, free);
-
-  swap(board, player, nxt);
+  shift(board, player, v);
 }
 
 function play(board, moves) {
@@ -96,14 +116,14 @@ function play(board, moves) {
   }
 }
 
-function gpsCoordinateSum(input) {
+function gpsCoordinateSum(input, cmp = isBox) {
   const { board, moves } = input;
   play(board, moves);
 
   let total = 0;
   for (let r = 0; r < board.length; ++r) {
     for (let c = 0; c < board[r].length; ++c) {
-      if (isBox(at(board, [r, c]))) total += 100 * r + c;
+      if (cmp(at(board, [r, c]))) total += 100 * r + c;
     }
   }
 
@@ -113,15 +133,18 @@ function gpsCoordinateSum(input) {
 function solve() {
   const input = readInput();
   const coordinateSum = gpsCoordinateSum(input);
-  console.log(input.board.map((l) => l.join(" ")).join("\n"));
 
   return coordinateSum;
 }
 
 function solve2() {
+  const grow = { "#": "##", O: "[]", ".": "..", "@": "@." };
+  const expand = (char) => grow[char].split("");
+
   const input = readInput();
-  const coordinateSum = gpsCoordinateSum(input);
-  console.log(input.board.map((l) => l.join(" ")).join("\n"));
+  input.board = input.board.map((row) => row.flatMap(expand));
+
+  const coordinateSum = gpsCoordinateSum(input, (c) => c === "[");
 
   return coordinateSum;
 }
