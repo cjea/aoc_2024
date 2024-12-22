@@ -97,8 +97,17 @@ function lowestMazeCost(grid) {
   };
 
   let lowest = { score: Infinity };
+  let bestSeats = new Set();
   const submit = (state) => {
-    if (state.score < lowest.score) lowest = state;
+    if (state.score < lowest.score) {
+      lowest = state;
+      bestSeats = new Set(state.path);
+    }
+    if (state.score === lowest.score) {
+      for (const id of state.path) {
+        bestSeats.add(id);
+      }
+    }
   };
 
   const queue = [{ path: [start.id], score: 0, dir: INITIAL_DIRECTION }];
@@ -106,7 +115,7 @@ function lowestMazeCost(grid) {
     const cur = queue.shift();
     const id = cur.path[cur.path.length - 1];
     const { pos, children } = nodeAt(id);
-    if (mGet(pos, cur.dir) <= cur.score) continue;
+    if (mGet(pos, cur.dir) < cur.score) continue;
 
     mSet(pos, cur.dir, cur.score);
     if (isEnd(at(grid, pos))) {
@@ -124,14 +133,19 @@ function lowestMazeCost(grid) {
     }
   }
 
-  return lowest;
+  return { ...lowest, bestSeats };
 }
 
 function solve() {
   const input = readInput();
-  const { score } = lowestMazeCost(input);
+  const { score, bestSeats } = lowestMazeCost(input);
 
-  return score;
+  for (let r = 0; r < input.length; ++r) {
+    for (let c = 0; c < input[r].length; ++c) {
+      if (bestSeats.has([r, c].join(","))) input[r][c] = "O";
+    }
+  }
+  return { score, numSeats: bestSeats.size };
 }
 
 console.log(solve());
