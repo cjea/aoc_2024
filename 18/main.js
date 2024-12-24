@@ -66,17 +66,11 @@ function shortestPath(board) {
   const been = (node) => seen.has(encode(node.pos));
 
   let lowest = { steps: Infinity };
-  const submit = (node) => {
-    if (lowest.steps > node.steps) lowest = node;
-  };
   const queue = [{ pos: [0, 0], steps: 0 }];
   while (queue.length) {
     const cur = queue.shift();
     if (been(cur)) continue;
-    if (done(cur)) {
-      submit(cur);
-      break;
-    }
+    if (done(cur)) return cur;
 
     see(cur);
     for (const n of neighbors(board, cur.pos)) {
@@ -97,7 +91,30 @@ function solve() {
   const steps = shortestPath(board);
 
   console.log(board.map((row) => row.join(" ")).join("\n"));
+
   return steps;
 }
 
+function solve2() {
+  const input = readInput();
+  const board = cover({
+    rows: ROWS,
+    cols: COLS,
+    corrupt: input.slice(0, 1 << 10),
+  });
+  let idx = (1 << 10) + 1;
+  let { steps } = shortestPath(board);
+  while (steps < Infinity && idx < input.length) {
+    ++idx;
+    const [r, c] = input[idx];
+    board[r][c] = WALL;
+    steps = shortestPath(board).steps;
+  }
+
+  console.log(board.map((row) => row.join(" ")).join("\n"));
+
+  return { idx, steps, answer: input[idx] };
+}
+
 console.log(solve());
+console.log(solve2());
