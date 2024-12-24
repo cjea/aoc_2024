@@ -11,45 +11,42 @@ function readInput() {
   return { inventory, designs };
 }
 
-function makePattern(inventory, design) {
-  const done = (d) => d === design;
-  const seen = new Set();
-  const see = (d) => seen.add(d);
-  const been = (d) => seen.has(d);
+const memo = {};
+const mGet = (str) => memo[str];
+const mSet = (str, total) => (memo[str] = total);
 
-  const queue = [{ d: "" }];
-  while (queue.length) {
-    const cur = queue.shift();
-    if (been(cur.d)) continue;
-    if (done(cur.d)) return true;
+function countPatterns(inventory, design) {
+  if (mGet(design) != null) return mGet(design);
+  if (design === "") return 1;
 
-    const len = cur.d.length;
-    for (const i of inventory) {
-      const designMatch = design.slice(len, len + i.length);
-      if (i === designMatch) {
-        queue.push({ d: cur.d + i });
-      }
-    }
-    see(cur.d);
+  const edgeP = (inv) => design.startsWith(inv);
+  let total = 0;
+  for (const inv of inventory.filter(edgeP)) {
+    const remaining = design.slice(inv.length);
+    const count = countPatterns(inventory, remaining);
+    total += count;
+    mSet(remaining, count);
   }
+  mSet(design, total);
 
-  return false;
+  return total;
 }
 
-function countTowels({ inventory, designs }) {
+function solve() {
+  const { inventory, designs } = readInput();
   let count = 0;
-  for (const design of designs) {
-    if (makePattern(inventory, design)) ++count;
-  }
+  for (const design of designs) if (countPatterns(inventory, design)) ++count;
 
   return count;
 }
 
-function solve() {
-  const input = readInput();
-  const n = countTowels(input);
+function solve2() {
+  const { inventory, designs } = readInput();
+  let count = 0;
+  for (const design of designs) count += countPatterns(inventory, design);
 
-  return n;
+  return count;
 }
 
 console.log(solve());
+console.log(solve2());
